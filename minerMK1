@@ -121,8 +121,8 @@ function digWithHaste(digFn)
   until not digFn()
 end
 
-function traceVein()
-  if not ENABLE_VEIN_TRACE then return end
+function traceVein(depth)
+  if not ENABLE_VEIN_TRACE or (depth or 0) > 10 then return end
 
   local directions = {
     { inspect = turtle.inspect, dig = turtle.dig },
@@ -134,7 +134,7 @@ function traceVein()
     local success, data = dir.inspect()
     if success and isWhitelisted(data.name) then
       digWithHaste(dir.dig)
-      checkAllSides()
+      traceVein((depth or 0) + 1)
     end
   end
 end
@@ -158,12 +158,15 @@ function faceDirection(dir)
   end
 end
 
+local haltMining = false
+
 function moveForwardSafe()
   if turtle.getFuelLevel() < 10 then
     if not moveForwardSafe.notified then
       print("Low fuel. Returning to surface.")
       moveForwardSafe.notified = true
       returnToSurface()
+      haltMining = true
     end
     return
   else
@@ -195,6 +198,7 @@ function returnToSurface()
   while pos.z > surfaceZ do moveUpSafe() end
   faceDirection(2)
   print("Returned to surface.")
+  print("📦 Turtle has returned to the starting chest position.")
 end
 
 function checkAllSides()
@@ -213,31 +217,66 @@ function checkAllSides()
 end
 
 function mineLayer()
+  if haltMining then return end
   for y = 1, DEFAULT_Y do
-    for x = 1, DEFAULT_X do
+    local direction = (y % 2 == 1) and 1 or -1
+    local startX, endX = (direction == 1) and 1 or DEFAULT_X, (direction == 1) and DEFAULT_X or 1
+    for x = startX, endX, direction do
       currentRow = y
       currentCol = x
       checkAllSides()
       moveForwardSafe()
       saveState()
+      if x == endX and y == DEFAULT_Y then
+        print("📦 Placing chest at end of layer " .. currentLayer .. "...")
+        turtle.select(CHEST_SLOT)
+        if turtle.placeDown() then
+          print("📤 Chest placed.")
+          for i = 1, 16 do
+            if i ~= FUEL_SLOT and i ~= TORCH_SLOT and i ~= CHEST_SLOT then
+              turtle.select(i)
+              turtle.dropDown()
+            end
+          end
+        else
+          print("⚠️ Failed to place chest.")
+        end
+      end
     end
-    if y % 2 == 1 then
-      turtle.turnRight()
-      moveForwardSafe()
-      turtle.turnRight()
-    else
-      turtle.turnLeft()
-      moveForwardSafe()
-      turtle.turnLeft()
+    if y < DEFAULT_Y then
+      if y % 2 == 1 then
+        turtle.turnRight()
+        moveForwardSafe()
+        turtle.turnRight()
+      else
+        turtle.turnLeft()
+        moveForwardSafe()
+        turtle.turnLeft()
+      end
+    end
     end
   end
 end
 
 function main()
+  if fs.exists(SAVE_FILE) then
+    print("A saved session was found. Resume? (y/n)")
+    local answer = io.read():lower()
+    if answer == "y" then
+      if loadState() then
+        print("✅ Resumed previous session from layer " .. currentLayer .. ", row " .. currentRow .. ", col " .. currentCol)
+      else
+        print("⚠️ Failed to load save. Starting fresh.")
+      end
+    else
+      fs.delete(SAVE_FILE)
+      print("Save file deleted. Starting fresh.")
+    end
+  end
   print("Enter depth to start mining (Y-level):")
   local targetY = tonumber(io.read())
-  while pos.z < targetY do moveDownSafe() end
   surfaceZ = pos.z
+  while pos.z < targetY do moveDownSafe() end
   checkBeaconEffect()
   print("Mining from Y = " .. pos.z)
 
