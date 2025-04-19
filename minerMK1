@@ -254,7 +254,6 @@ function mineLayer()
         turtle.turnLeft()
       end
     end
-    end
   end
 end
 
