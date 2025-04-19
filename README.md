@@ -1,159 +1,212 @@
-# Max's Ultimate Multi-Layer Checkerboard Quarry Bot
+Max's Ultimate Multi-Layer Checkerboard Quarry Bot
 
-## 🧽 Overview  
-This script is a fully automated, fuel-aware, smart mining program for the Minecraft ComputerCraft Turtle. It mines a checkerboard pattern of 2×2 shafts layer by layer, identifies valuable ores, manages fuel, torches, and chests, and returns to its chest to unload inventory when needed.
+Overview
 
----
+This script is a fully automated, fuel-aware, smart mining program for the Minecraft ComputerCraft Turtle. It mines a checkerboard pattern of 2×2 shafts layer by layer, identifies valuable ores (including optional tech mod ores), manages fuel, torches, and chests, and returns to its chest to unload inventory when needed.
 
-## 🚀 Features  
-- ✅ Multi-layered 2×2 shaft quarry  
-- ⛏️ Ore whitelist-based smart mining  
-- ⛽ Automated fuel management  
-- 💡 Torch placement every few steps  
-- 📦 Chest placement and inventory handling  
-- 🧽 Position tracking and resuming  
-- ♻️ Auto-return and resume functionality  
+Features
 
----
+Multi-layered 2×2 shaft quarry
 
-## 🧰 Setup Instructions  
+Ore whitelist-based smart mining (supports modded ores)
 
-### 🧱 Inventory Slot Configuration  
+Automated fuel management
 
-| Slot | Item              |
-|------|-------------------|
-| 1    | Fuel (coal)       |
-| 15   | Chests            |
-| 16   | Torches           |
-| 2-14 | Free for mining   |
+Torch placement every few steps
 
-### ▶️ Starting the Bot  
+Chest placement and inventory handling
 
-1. Place the Turtle at the surface of your intended quarry.  
-2. Load inventory as per above.  
-3. Run the script:
+Position tracking and resuming
 
-   ```
-   lua turtle_miner.lua
-   ```
+Depth prompt for configurable starting Y level
 
-4. When prompted:
+Auto-return and resume functionality
 
-   ```
-   Use default 100x100x10 mine? (y/n)
-   ```
+Setup Instructions
 
-   - Enter `y` to start the default area.  
-   - Enter `n` to enter custom shaft dimensions and layer count.  
+Inventory Slot Configuration
 
----
+Slot
 
-## 🧱 Mining Pattern  
+Item
 
-- Mines a **checkerboard pattern**: every 3 blocks a 2×2 shaft is created.  
-- Each layer is handled one at a time, from top to bottom.  
-- Odd-numbered layers use a 3-block offset to stagger shafts for better coverage.  
+1
 
----
+Fuel (coal)
 
-## 🎯 Whitelisted Ores  
+15
 
-Only the following ores will be mined:
+Chests
 
-```
-minecraft:coal_ore  
-minecraft:iron_ore  
-minecraft:gold_ore  
-minecraft:diamond_ore  
-minecraft:redstone_ore  
-minecraft:lapis_ore  
-minecraft:emerald_ore  
-```
+16
 
----
+Torches
 
-## 🔧 Key Functions  
+2-14
 
-| Function               | Description                                          |
-|------------------------|------------------------------------------------------|
-| `mine2x2Shaft()`       | Mines a 2×2 shaft and inspects all sides             |
-| `checkAllSides()`      | Digs all 6 adjacent blocks if whitelisted            |
-| `refuelIfNeeded()`     | Refuels automatically when low                       |
-| `returnToChest()`      | Returns to (0,0,0) to unload and resupply            |
-| `resumeFrom(pos)`      | Returns to last known shaft and resumes mining       |
-| `placeLayerChest()`    | Places chest at the end of each layer                |
+Free for mining
 
----
+Starting the Bot
 
-## 🔦 Torch & Chest Placement  
+Place the Turtle at the surface of your intended quarry.
 
-- A **torch** is placed every 9 steps (default).  
-- At the **end of each layer**, the Turtle places a chest behind itself and offloads inventory.  
+Load inventory as per above.
 
----
+Run the script.
 
-## 🧠 Smart Inventory Management  
+Enter the Y coordinate to dig down to (e.g., 11 for diamond level).
 
-- Auto-drops items when inventory is full.  
-- Auto-sorts coal into fuel slot.  
-- Will pause and wait for user to insert fuel if out.  
+When prompted:
 
----
+Use default 100x100x10 mine? (y/n)
 
-## ❌ Error Handling  
+Enter y to use the default.
 
-If the Turtle fails (e.g., out of fuel or resources):  
-- Logs **last known coordinates**  
-- Logs **shaft details**  
-- Returns to surface if possible  
+Enter n to specify:
+
+X direction shafts
+
+Y direction shafts
+
+Number of layers
+
+Mining Pattern
+
+Mines a checkerboard pattern: every 3 blocks a 2×2 shaft is created
+
+Each layer is handled one at a time, from top to bottom
+
+Odd-numbered layers use a 3-block offset to stagger shafts for better coverage
+
+Whitelisted Ores
+
+Includes default vanilla ores and mod support (optional):
+
+Vanilla:
+
+minecraft:coal_ore
+minecraft:iron_ore
+minecraft:gold_ore
+minecraft:diamond_ore
+minecraft:redstone_ore
+minecraft:lapis_ore
+minecraft:emerald_ore
+
+Modded (set to true in script to enable):
+
+mekanism:osmium_ore
+mekanism:lead_ore
+mekanism:tin_ore
+mekanism:uranium_ore
+thermal:tin_ore
+thermal:silver_ore
+thermal:lead_ore
+thermal:nickel_ore
+create:zinc_ore
+immersiveengineering:aluminum_ore
+
+Key Functions
+
+Function
+
+Description
+
+mine2x2Shaft()
+
+Mines a 2×2 shaft and inspects all sides
+
+checkAllSides()
+
+Digs all 6 adjacent blocks if whitelisted
+
+refuelIfNeeded()
+
+Refuels automatically when low
+
+returnToChest()
+
+Returns to (0,0,surfaceZ) to unload and resupply
+
+resumeFrom(pos)
+
+Returns to last known shaft and resumes mining
+
+placeLayerChest()
+
+Places chest at the end of each layer
+
+moveCoalToSlot1()
+
+Keeps Slot 1 stocked with coal if available
+
+startZ Prompt
+
+Lets user define starting depth (Y coordinate)
+
+Torch & Chest Placement
+
+A torch is placed every 9 steps (default)
+
+At the end of each layer, the Turtle places a chest behind itself and offloads inventory
+
+Smart Inventory Management
+
+Auto-drops items when inventory is full
+
+Auto-sorts coal into fuel slot
+
+Pauses and prompts user if out of fuel
+
+Returns to surface (based on surfaceZ) to drop items when needed
+
+Error Handling
+
+If the Turtle fails (e.g., out of fuel, torches, or chests):
+
+Logs last known coordinates
+
+Logs shaft details
+
+Returns to surface if possible
 
 Example log:
 
-```
 ❌ TURTLE FAILED!
 X: 27, Y: 33, Z: 5
 At shaft: Layer 4, Row 9, Col 11
-```
 
----
+Tips for Best Results
 
-## 💡 Tips for Best Results  
+Bring LOTS of coal: each move or dig consumes fuel
 
-- Bring LOTS of coal: each move or dig consumes fuel.  
-- Stack torches and chests efficiently.  
-- Set up a main chest at `(0,0,0)` for inventory drops.  
-- Use `Ctrl+T` to safely stop — Turtle will resume when re-run.  
+Stack torches and chests efficiently
 
----
+Set up a main chest at (0,0,surface) for inventory drops
 
-## 🧪 Example Usage  
+Use Ctrl+T to safely stop — Turtle will resume when re-run
 
-```
--- Use custom size
+Adjust WHITELIST in code to enable modded ores
+
+Example Usage
+
+Dig down to which Y coordinate before mining?
+11
+Use default 100x100x10 mine? (y/n)
+n
 Number of shafts in X direction:
 10
 Number of shafts in Y direction:
 10
 Number of layers:
 5
-```
 
----
+To-Do / Ideas for Expansion
 
-## 📌 To-Do / Ideas for Expansion  
 
-- [ ] Add blacklist support  
-- [ ] Add live status display (via rednet/websocket)  
-- [ ] Integrate auto-smelter chest  
-- [ ] Add remote command receiver  
 
----
+License
 
-## 📜 License  
+MIT License. Free to use, modify, and share.
 
-MIT License. Free to use, modify, and share.  
-
----
-
-**Happy Mining!** ⛏️
+Happy Mining! ⛏️
 
