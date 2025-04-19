@@ -38,9 +38,9 @@ end
 if http then selfUpdate() else print("HTTP API is disabled. Skipping auto-update.") end
 
 -- === CONFIGURATION ===
-local DEFAULT_X = 100
-local DEFAULT_Y = 100
-local DEFAULT_LAYERS = 10
+local DEFAULT_X = 5
+local DEFAULT_Y = 50
+local DEFAULT_LAYERS = 5
 
 local FUEL_SLOT = 1
 local CHEST_SLOT = 15
