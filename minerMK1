@@ -17,13 +17,13 @@ local WHITELIST = {
   ["minecraft:gold_ore"] = true,
   ["minecraft:diamond_ore"] = true,
   ["minecraft:redstone_ore"] = true,
-  ["minecraft:lapis_ore"] = false,
+  ["minecraft:lapis_ore"] = true,
   ["minecraft:emerald_ore"] = true,
 
   -- Tech mod ores (disabled by default, set to true to enable)
   ["mekanism:osmium_ore"] = true,
-  ["mekanism:lead_ore"] = true,
-  ["mekanism:tin_ore"] = true,
+  ["mekanism:lead_ore"] = false,
+  ["mekanism:tin_ore"] = false,
   ["mekanism:uranium_ore"] = false,
   ["thermal:tin_ore"] = false,
   ["thermal:silver_ore"] = false,
@@ -181,7 +181,7 @@ function returnToChest(reason)
   local saved = {x = pos.x, y = pos.y, z = pos.z, face = pos.face}
   faceDirection(2) while pos.y > 0 do moveForwardSafe() end
   faceDirection(3) while pos.x > 0 do moveForwardSafe() end
-  while pos.z > 0 do moveUpSafe() end
+  while pos.z > surfaceZ do moveUpSafe() end
   faceDirection(2)
   dropInventory()
   refuelIfNeeded()
@@ -249,6 +249,19 @@ function runLayeredQuarry(cols, rows, layers)
     if layer < layers then moveDownSafe() end
   end
 end
+
+-- === START DEPTH PROMPT ===
+local startZ = 0
+print("Dig down to which Y coordinate before mining?")
+startZ = tonumber(io.read())
+
+print("Descending to Y = " .. startZ .. "...")
+while pos.z < startZ do
+  moveDownSafe()
+end
+
+-- Save surface Z position for returning later
+local surfaceZ = pos.z
 
 -- === MAIN ===
 print("Use default 100x100x10 mine? (y/n)")
