@@ -19,6 +19,18 @@ local WHITELIST = {
   ["minecraft:redstone_ore"] = true,
   ["minecraft:lapis_ore"] = true,
   ["minecraft:emerald_ore"] = true,
+
+  -- Tech mod ores (disabled by default, set to true to enable)
+  ["mekanism:osmium_ore"] = true,
+  ["mekanism:lead_ore"] = false,
+  ["mekanism:tin_ore"] = false,
+  ["mekanism:uranium_ore"] = false,
+  ["thermal:tin_ore"] = false,
+  ["thermal:silver_ore"] = false,
+  ["thermal:lead_ore"] = false,
+  ["thermal:nickel_ore"] = false,
+  ["create:zinc_ore"] = false,
+  ["immersiveengineering:aluminum_ore"] = false
 }
 
 -- === STATE ===
