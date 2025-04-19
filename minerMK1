@@ -60,8 +60,6 @@ local WHITELIST = {
   ["minecraft:lapis_ore"] = false,
   ["minecraft:emerald_ore"] = true,
   ["minecraft:copper_ore"] = false,
-
-  -- Tech mod ores (disabled by default, set to true to enable)
   ["mekanism:osmium_ore"] = true,
   ["mekanism:lead_ore"] = true,
   ["mekanism:tin_ore"] = true,
@@ -220,7 +218,12 @@ function mineLayer()
   if haltMining then return end
   for y = 1, DEFAULT_Y do
     local direction = (y % 2 == 1) and 1 or -1
-    local startX, endX = (direction == 1) and 1 or DEFAULT_X, (direction == 1) and DEFAULT_X or 1
+    local startX, endX
+    if direction == 1 then
+      startX, endX = 1, DEFAULT_X
+    else
+      startX, endX = DEFAULT_X, 1
+    end
     for x = startX, endX, direction do
       currentRow = y
       currentCol = x
@@ -231,7 +234,7 @@ function mineLayer()
         print("📦 Placing chest at end of layer " .. currentLayer .. "...")
         turtle.select(CHEST_SLOT)
         if turtle.placeDown() then
-          print("📤 Chest placed.")
+          print("📄 Chest placed.")
           for i = 1, 16 do
             if i ~= FUEL_SLOT and i ~= TORCH_SLOT and i ~= CHEST_SLOT then
               turtle.select(i)
