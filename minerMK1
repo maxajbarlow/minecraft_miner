@@ -1,5 +1,5 @@
 -- TURTLE MINER SCRIPT
--- Max's Ultimate Multi-Layer Checkerboard Quarry Bot with Fuel Estimation, Save/Resume, Vein Tracing, and Beacon Detection
+-- Max's Ultimate Multi-Layer Checkerboard Quarry Bot with Save/Resume, Vein Tracing, and Beacon Detection
 
 -- === SELF-UPDATER ===
 local UPDATE_URL = "https://raw.githubusercontent.com/maxajbarlow/minecraft_miner/refs/heads/main/minerMK1.lua"
@@ -38,9 +38,9 @@ end
 if http then selfUpdate() else print("HTTP API is disabled. Skipping auto-update.") end
 
 -- === CONFIGURATION ===
-local DEFAULT_X = 5
-local DEFAULT_Y = 50
-local DEFAULT_LAYERS = 5
+local DEFAULT_X = 100
+local DEFAULT_Y = 100
+local DEFAULT_LAYERS = 10
 
 local FUEL_SLOT = 1
 local CHEST_SLOT = 15
@@ -135,12 +135,6 @@ function traceVein(depth)
       traceVein((depth or 0) + 1)
     end
   end
-end
-
-function estimateFuel(layerCount, width, height)
-  local roundTrip = (width + height) * 2 * 3
-  local total = roundTrip * layerCount + 200
-  return total
 end
 
 -- === MINING FLOW ===
@@ -282,14 +276,8 @@ function main()
   checkBeaconEffect()
   print("Mining from Y = " .. pos.z)
 
-  local fuelRequired = estimateFuel(DEFAULT_LAYERS, DEFAULT_X, DEFAULT_Y)
-  if turtle.getFuelLevel() < fuelRequired then
-    print("Not enough fuel. Required: " .. fuelRequired .. ", Available: " .. turtle.getFuelLevel())
-    returnToSurface()
-    return
-  end
-
   for layer = 1, DEFAULT_LAYERS do
+    if haltMining then break end
     currentLayer = layer
     print("Starting layer " .. layer .. "...")
     mineLayer()
