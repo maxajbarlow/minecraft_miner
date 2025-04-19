@@ -17,13 +17,13 @@ local WHITELIST = {
   ["minecraft:gold_ore"] = true,
   ["minecraft:diamond_ore"] = true,
   ["minecraft:redstone_ore"] = true,
-  ["minecraft:lapis_ore"] = true,
+  ["minecraft:lapis_ore"] = false,
   ["minecraft:emerald_ore"] = true,
 
   -- Tech mod ores (disabled by default, set to true to enable)
   ["mekanism:osmium_ore"] = true,
-  ["mekanism:lead_ore"] = false,
-  ["mekanism:tin_ore"] = false,
+  ["mekanism:lead_ore"] = true,
+  ["mekanism:tin_ore"] = true,
   ["mekanism:uranium_ore"] = false,
   ["thermal:tin_ore"] = false,
   ["thermal:silver_ore"] = false,
