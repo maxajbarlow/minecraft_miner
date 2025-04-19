@@ -1,5 +1,41 @@
 -- TURTLE MINER SCRIPT
--- Max's Ultimate Multi-Layer Checkerboard Quarry Bot
+-- Max's Ultimate Multi-Layer Checkerboard Quarry Bot with Fuel Estimation, Save/Resume, Vein Tracing, and Beacon Detection
+
+-- === SELF-UPDATER ===
+local UPDATE_URL = "https://raw.githubusercontent.com/maxajbarlow/minecraft_miner/refs/heads/main/minerMK1.lua"
+local SCRIPT_NAME = "startup.lua"
+
+function selfUpdate()
+  print("Checking for updates...")
+  local response = http.get(UPDATE_URL)
+  if not response then
+    print("⚠️ Update check failed. Running current version.")
+    return
+  end
+
+  local remote = response.readAll()
+  response.close()
+
+  if fs.exists(SCRIPT_NAME) then
+    local current = fs.open(SCRIPT_NAME, "r")
+    local localContent = current.readAll()
+    current.close()
+
+    if localContent == remote then
+      print("✅ No update needed.")
+      return
+    end
+  end
+
+  print("⬇️ New version found. Updating...")
+  local file = fs.open(SCRIPT_NAME, "w")
+  file.write(remote)
+  file.close()
+  print("✅ Script updated. Rebooting...")
+  os.reboot()
+end
+
+if http then selfUpdate() else print("HTTP API is disabled. Skipping auto-update.") end
 
 -- === CONFIGURATION ===
 local DEFAULT_X = 100
@@ -10,6 +46,10 @@ local FUEL_SLOT = 1
 local CHEST_SLOT = 15
 local TORCH_SLOT = 16
 local TORCH_SPACING = 9
+local SAVE_FILE = "miner_state.txt"
+
+local ENABLE_VEIN_TRACE = true
+local VEIN_TRACE_RADIUS = 1
 
 local WHITELIST = {
   ["minecraft:coal_ore"] = true,
@@ -17,13 +57,14 @@ local WHITELIST = {
   ["minecraft:gold_ore"] = true,
   ["minecraft:diamond_ore"] = true,
   ["minecraft:redstone_ore"] = true,
-  ["minecraft:lapis_ore"] = true,
+  ["minecraft:lapis_ore"] = false,
   ["minecraft:emerald_ore"] = true,
+  ["minecraft:copper_ore"] = false,
 
   -- Tech mod ores (disabled by default, set to true to enable)
   ["mekanism:osmium_ore"] = true,
-  ["mekanism:lead_ore"] = false,
-  ["mekanism:tin_ore"] = false,
+  ["mekanism:lead_ore"] = true,
+  ["mekanism:tin_ore"] = true,
   ["mekanism:uranium_ore"] = false,
   ["thermal:tin_ore"] = false,
   ["thermal:silver_ore"] = false,
@@ -37,13 +78,74 @@ local WHITELIST = {
 local pos = {x = 0, y = 0, z = 0, face = 0}
 local currentLayer, currentRow, currentCol = 1, 1, 1
 local stepCounter = 0
+local surfaceZ = pos.z
+local hasteDetected = false
 
--- === UTILITY FUNCTIONS ===
-function logCoords()
-  print("❌ TURTLE FAILED!")
-  print("X: " .. pos.x .. ", Y: " .. pos.y .. ", Z: " .. pos.z)
-  print("At shaft: Layer " .. currentLayer .. ", Row " .. currentRow .. ", Col " .. currentCol)
+-- === HELPERS ===
+function saveState()
+  local f = fs.open(SAVE_FILE, "w")
+  f.write(textutils.serialize({pos = pos, layer = currentLayer, row = currentRow, col = currentCol}))
+  f.close()
 end
+
+function loadState()
+  if fs.exists(SAVE_FILE) then
+    local f = fs.open(SAVE_FILE, "r")
+    local data = textutils.unserialize(f.readAll())
+    f.close()
+    pos = data.pos
+    currentLayer = data.layer
+    currentRow = data.row
+    currentCol = data.col
+    return true
+  end
+  return false
+end
+
+function checkBeaconEffect()
+  local effects = turtle.getFuelLimit and {} or nil
+  if effects then
+    for _, e in pairs(effects) do
+      if e == "haste" then
+        hasteDetected = true
+        print("🟡 Haste effect detected (Beacon)")
+      end
+    end
+  end
+end
+
+function digWithHaste(digFn)
+  repeat
+    digFn()
+    sleep(hasteDetected and 0.05 or 0.2)
+  until not digFn()
+end
+
+function traceVein()
+  if not ENABLE_VEIN_TRACE then return end
+
+  local directions = {
+    { inspect = turtle.inspect, dig = turtle.dig },
+    { inspect = turtle.inspectUp, dig = turtle.digUp },
+    { inspect = turtle.inspectDown, dig = turtle.digDown },
+  }
+
+  for _, dir in ipairs(directions) do
+    local success, data = dir.inspect()
+    if success and isWhitelisted(data.name) then
+      digWithHaste(dir.dig)
+      checkAllSides()
+    end
+  end
+end
+
+function estimateFuel(layerCount, width, height)
+  local roundTrip = (width + height) * 2 * 3
+  local total = roundTrip * layerCount + 200
+  return total
+end
+
+-- === MINING FLOW ===
 
 function isWhitelisted(name)
   return WHITELIST[name] == true
@@ -57,237 +159,102 @@ function faceDirection(dir)
 end
 
 function moveForwardSafe()
-  refuelIfNeeded()
-  while not turtle.forward() do turtle.dig() sleep(0.2) end
+  if turtle.getFuelLevel() < 10 then
+    if not moveForwardSafe.notified then
+      print("Low fuel. Returning to surface.")
+      moveForwardSafe.notified = true
+      returnToSurface()
+    end
+    return
+  else
+    moveForwardSafe.notified = false
+  end
+  while not turtle.forward() do turtle.dig() sleep(0.1) end
   if pos.face == 0 then pos.y = pos.y + 1
   elseif pos.face == 1 then pos.x = pos.x + 1
   elseif pos.face == 2 then pos.y = pos.y - 1
   elseif pos.face == 3 then pos.x = pos.x - 1 end
   stepCounter = stepCounter + 1
-  placeTorchIfNeeded()
-end
-
-function moveBackSafe()
-  refuelIfNeeded()
-  while not turtle.back() do turtle.turnLeft() turtle.turnLeft() turtle.dig() turtle.turnRight() turtle.turnRight() sleep(0.2) end
-  if pos.face == 0 then pos.y = pos.y - 1
-  elseif pos.face == 1 then pos.x = pos.x - 1
-  elseif pos.face == 2 then pos.y = pos.y + 1
-  elseif pos.face == 3 then pos.x = pos.x + 1 end
-end
-
-function moveUpSafe()
-  refuelIfNeeded()
-  while not turtle.up() do turtle.digUp() sleep(0.2) end
-  pos.z = pos.z - 1
 end
 
 function moveDownSafe()
-  refuelIfNeeded()
-  while not turtle.down() do turtle.digDown() sleep(0.2) end
+  while not turtle.down() do turtle.digDown() sleep(0.1) end
   pos.z = pos.z + 1
 end
 
-function turnLeft() turtle.turnLeft() pos.face = (pos.face - 1) % 4 if pos.face < 0 then pos.face = 3 end end
-function turnRight() turtle.turnRight() pos.face = (pos.face + 1) % 4 end
-
-function isInventoryFull()
-  for i = 2, 16 do if turtle.getItemCount(i) == 0 then return false end end
-  return true
+function moveUpSafe()
+  while not turtle.up() do turtle.digUp() sleep(0.1) end
+  pos.z = pos.z - 1
 end
 
-function refuelIfNeeded()
-  if turtle.getFuelLevel() < 100 then
-    turtle.select(FUEL_SLOT)
-    if not turtle.refuel(1) then
-      print("Insert fuel in slot 1 and press Enter...")
-      io.read()
-    end
-  end
-end
-
-function moveCoalToSlot1()
-  for i = 2, 16 do
-    local item = turtle.getItemDetail(i)
-    if item and item.name == "minecraft:coal" then
-      turtle.select(i)
-      turtle.transferTo(FUEL_SLOT)
-    end
-  end
-end
-
-function moveTorchesToSlot16()
-  for i = 1, 15 do
-    local item = turtle.getItemDetail(i)
-    if item and item.name:find("torch") then
-      turtle.select(i)
-      turtle.transferTo(TORCH_SLOT)
-      break
-    end
-  end
-end
-
-function moveChestsToSlot15()
-  for i = 1, 14 do
-    local item = turtle.getItemDetail(i)
-    if item and item.name:find("chest") then
-      turtle.select(i)
-      turtle.transferTo(CHEST_SLOT)
-      break
-    end
-  end
-end
-
-function placeTorchIfNeeded()
-  if stepCounter >= TORCH_SPACING then
-    local current = turtle.getSelectedSlot()
-    turtle.select(TORCH_SLOT)
-    local item = turtle.getItemDetail()
-    if not item then returnToChest("No torches") end
-    if item.name:find("torch") then
-      turtle.placeDown()
-      stepCounter = 0
-    end
-    turtle.select(current)
-  end
-end
-
-function inspectAndDigIfWhitelisted(inspectFn, digFn)
-  local success, data = inspectFn()
-  if success and isWhitelisted(data.name) then
-    digFn()
-    moveCoalToSlot1()
-  end
+function returnToSurface()
+  faceDirection(2)
+  while pos.y > 0 do moveForwardSafe() end
+  faceDirection(3)
+  while pos.x > 0 do moveForwardSafe() end
+  while pos.z > surfaceZ do moveUpSafe() end
+  faceDirection(2)
+  print("Returned to surface.")
 end
 
 function checkAllSides()
-  inspectAndDigIfWhitelisted(turtle.inspect, turtle.dig)
-  inspectAndDigIfWhitelisted(turtle.inspectUp, turtle.digUp)
-  inspectAndDigIfWhitelisted(turtle.inspectDown, turtle.digDown)
-  turnLeft() inspectAndDigIfWhitelisted(turtle.inspect, turtle.dig) turnRight()
-  turnRight() inspectAndDigIfWhitelisted(turtle.inspect, turtle.dig) turnLeft()
-  turnLeft() turnLeft() inspectAndDigIfWhitelisted(turtle.inspect, turtle.dig) turnRight() turnRight()
+  local directions = {
+    { inspect = turtle.inspect, dig = turtle.dig },
+    { inspect = turtle.inspectUp, dig = turtle.digUp },
+    { inspect = turtle.inspectDown, dig = turtle.digDown }
+  }
+  for _, dir in ipairs(directions) do
+    local success, data = dir.inspect()
+    if success and isWhitelisted(data.name) then
+      digWithHaste(dir.dig)
+      if ENABLE_VEIN_TRACE then traceVein() end
+    end
+  end
 end
 
-function dropInventory()
-  turnLeft() turnLeft()
-  for i = 2, 16 do turtle.select(i) turtle.drop() end
-  turtle.select(1)
-  turnRight() turnRight()
-end
-
-function returnToChest(reason)
-  print("Returning to chest: " .. reason)
-  local saved = {x = pos.x, y = pos.y, z = pos.z, face = pos.face}
-  faceDirection(2) while pos.y > 0 do moveForwardSafe() end
-  faceDirection(3) while pos.x > 0 do moveForwardSafe() end
-  while pos.z > surfaceZ do moveUpSafe() end
-  faceDirection(2)
-  dropInventory()
-  refuelIfNeeded()
-  moveChestsToSlot15()
-  moveTorchesToSlot16()
-  resumeFrom(saved)
-end
-
-function resumeFrom(p)
-  while pos.z < p.z do moveDownSafe() end
-  faceDirection(p.x > pos.x and 1 or 3)
-  while pos.x ~= p.x do moveForwardSafe() end
-  faceDirection(p.y > pos.y and 0 or 2)
-  while pos.y ~= p.y do moveForwardSafe() end
-  while pos.face ~= p.face do turnRight() end
-end
-
-function placeLayerChest()
-  turtle.select(CHEST_SLOT)
-  local item = turtle.getItemDetail()
-  if not item or not item.name:find("chest") then returnToChest("Out of chests") end
-  turnLeft() turnLeft()
-  turtle.place()
-  dropInventory()
-  turnRight() turnRight()
-end
-
-function mine2x2Shaft()
-  for dy = 0, 1 do
-    for dx = 0, 1 do
-      if dx == 1 then turnRight() moveForwardSafe() turnLeft() end
-      if dy == 1 then moveForwardSafe() end
+function mineLayer()
+  for y = 1, DEFAULT_Y do
+    for x = 1, DEFAULT_X do
+      currentRow = y
+      currentCol = x
       checkAllSides()
+      moveForwardSafe()
+      saveState()
+    end
+    if y % 2 == 1 then
+      turtle.turnRight()
+      moveForwardSafe()
+      turtle.turnRight()
+    else
+      turtle.turnLeft()
+      moveForwardSafe()
+      turtle.turnLeft()
     end
   end
-  moveBackSafe() turnLeft() moveBackSafe() turnRight()
 end
 
-function skipToNextShaft() turnRight() for i = 1, 3 do moveForwardSafe() end turnLeft() end
-function offsetStart() for i = 1, 3 do moveForwardSafe() end end
-function returnFromOffset() turnLeft() for i = 1, 3 do moveBackSafe() end turnRight() end
+function main()
+  print("Enter depth to start mining (Y-level):")
+  local targetY = tonumber(io.read())
+  while pos.z < targetY do moveDownSafe() end
+  surfaceZ = pos.z
+  checkBeaconEffect()
+  print("Mining from Y = " .. pos.z)
 
-function runLayeredQuarry(cols, rows, layers)
-  for layer = 1, layers do
+  local fuelRequired = estimateFuel(DEFAULT_LAYERS, DEFAULT_X, DEFAULT_Y)
+  if turtle.getFuelLevel() < fuelRequired then
+    print("Not enough fuel. Required: " .. fuelRequired .. ", Available: " .. turtle.getFuelLevel())
+    returnToSurface()
+    return
+  end
+
+  for layer = 1, DEFAULT_LAYERS do
     currentLayer = layer
-    print("Starting layer " .. layer)
-    if layer % 2 == 1 then offsetStart() end
-
-    for row = 1, rows do
-      currentRow = row
-      for col = 1, cols do
-        currentCol = col
-        mine2x2Shaft()
-        if col < cols then skipToNextShaft() end
-        if isInventoryFull() then returnToChest("Inventory full") end
-      end
-      if row < rows then
-        turnRight() for i = 1, 3 do moveForwardSafe() end turnLeft()
-        turnLeft() for i = 1, (cols - 1) * 3 do moveForwardSafe() end turnRight()
-      end
-    end
-
-    if layer % 2 == 1 then returnFromOffset() end
-    placeLayerChest()
-    if layer < layers then moveDownSafe() end
+    print("Starting layer " .. layer .. "...")
+    mineLayer()
+    if layer < DEFAULT_LAYERS then moveDownSafe() end
   end
+  returnToSurface()
 end
 
--- === START DEPTH PROMPT ===
-local startZ = 0
-print("Dig down to which Y coordinate before mining?")
-startZ = tonumber(io.read())
-
-print("Descending to Y = " .. startZ .. "...")
-while pos.z < startZ do
-  moveDownSafe()
-end
-
--- Save surface Z position for returning later
-local surfaceZ = pos.z
-
--- === MAIN ===
-print("Use default 100x100x10 mine? (y/n)")
-local input = io.read()
-local cols, rows, layers = DEFAULT_X, DEFAULT_Y, DEFAULT_LAYERS
-if input:lower() ~= "y" and input:lower() ~= "yes" then
-  print("Number of shafts in X direction:")
-  cols = tonumber(io.read())
-  print("Number of shafts in Y direction:")
-  rows = tonumber(io.read())
-  print("Number of layers:")
-  layers = tonumber(io.read())
-end
-
-moveCoalToSlot1()
-moveTorchesToSlot16()
-moveChestsToSlot15()
-refuelIfNeeded()
-
-local success, err = pcall(function()
-  runLayeredQuarry(cols, rows, layers)
-end)
-
-if not success then
-  logCoords()
-  error(err)
-end
-
-print("✅ Mining complete.")
+main()
