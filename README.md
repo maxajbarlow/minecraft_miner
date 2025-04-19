@@ -1,8 +1,8 @@
-Overview
+##Overview
 
-This script is a fully automated, fuel-aware, smart mining program for the Minecraft ComputerCraft Turtle. It mines a checkerboard pattern of 2x2 shafts layer by layer, identifies valuable ores, manages fuel, torches, and chests, and returns to its chest to unload inventory when needed.
+#This script is a fully automated, fuel-aware, smart mining program for the Minecraft ComputerCraft Turtle. It mines a checkerboard pattern of 2x2 shafts layer by layer, identifies valuable ores, manages fuel, torches, and chests, and returns to its chest to unload inventory when needed.
 
-Features
+#Features
 
 ✅ Multi-layered 2x2 shaft quarry
 
