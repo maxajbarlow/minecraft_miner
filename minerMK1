@@ -6,10 +6,10 @@ local UPDATE_URL = "https://raw.githubusercontent.com/maxajbarlow/minecraft_mine
 local SCRIPT_NAME = "startup.lua"
 
 function selfUpdate()
-  print("Checking for updates...")
+  turtle.say("Checking for updates...")
   local response = http.get(UPDATE_URL)
   if not response then
-    print("⚠️ Update check failed. Running current version.")
+    turtle.say("Update check failed.")
     return
   end
 
@@ -20,22 +20,21 @@ function selfUpdate()
     local current = fs.open(SCRIPT_NAME, "r")
     local localContent = current.readAll()
     current.close()
-
     if localContent == remote then
-      print("✅ No update needed.")
+      turtle.say("No update needed.")
       return
     end
   end
 
-  print("⬇️ New version found. Updating...")
+  turtle.say("New version found. Updating...")
   local file = fs.open(SCRIPT_NAME, "w")
   file.write(remote)
   file.close()
-  print("✅ Script updated. Rebooting...")
+  turtle.say("Script updated. Rebooting...")
   os.reboot()
 end
 
-if http then selfUpdate() else print("HTTP API is disabled. Skipping auto-update.") end
+if http then selfUpdate() else turtle.say("HTTP disabled. Skipping update.") end
 
 -- === CONFIGURATION ===
 local DEFAULT_X = 100
@@ -107,7 +106,7 @@ function checkBeaconEffect()
     for _, e in pairs(effects) do
       if e == "haste" then
         hasteDetected = true
-        print("🟡 Haste effect detected (Beacon)")
+        turtle.say("Haste effect detected")
       end
     end
   end
@@ -122,16 +121,14 @@ end
 
 function traceVein(depth)
   if not ENABLE_VEIN_TRACE or (depth or 0) > 10 then return end
-
   local directions = {
     { inspect = turtle.inspect, dig = turtle.dig },
     { inspect = turtle.inspectUp, dig = turtle.digUp },
     { inspect = turtle.inspectDown, dig = turtle.digDown },
   }
-
   for _, dir in ipairs(directions) do
     local success, data = dir.inspect()
-    if success and isWhitelisted(data.name) then
+    if success and data.name and isWhitelisted(data.name) then
       digWithHaste(dir.dig)
       traceVein((depth or 0) + 1)
     end
@@ -153,10 +150,30 @@ end
 
 local haltMining = false
 
+function getFuelScore(item)
+  local fuelValues = {
+    ["minecraft:coal"] = 80,
+    ["minecraft:charcoal"] = 80,
+    ["minecraft:coal_block"] = 800
+  }
+  return fuelValues[item] or 0
+end
+
+function getTotalFuelPotential()
+  local total = turtle.getFuelLevel()
+  for i = 1, 16 do
+    local item = turtle.getItemDetail(i)
+    if item then
+      total = total + getFuelScore(item.name) * item.count
+    end
+  end
+  return total
+end
+
 function moveForwardSafe()
-  if turtle.getFuelLevel() < 10 then
+  if getTotalFuelPotential() < 50 then
     if not fuelNotified then
-      print("Low fuel. Returning to surface.")
+      turtle.say("Low fuel. Returning to surface.")
       fuelNotified = true
       returnToSurface()
       haltMining = true
@@ -190,8 +207,7 @@ function returnToSurface()
   while pos.x > 0 do moveForwardSafe() end
   while pos.z > surfaceZ do moveUpSafe() end
   faceDirection(2)
-  print("Returned to surface.")
-  print("📦 Turtle has returned to the starting chest position.")
+  turtle.say("Returned to surface.")
 end
 
 function checkAllSides()
@@ -202,7 +218,7 @@ function checkAllSides()
   }
   for _, dir in ipairs(directions) do
     local success, data = dir.inspect()
-    if success and isWhitelisted(data.name) then
+    if success and data.name and isWhitelisted(data.name) then
       digWithHaste(dir.dig)
       if ENABLE_VEIN_TRACE then traceVein() end
     end
@@ -214,11 +230,7 @@ function mineLayer()
   for y = 1, DEFAULT_Y do
     local direction = (y % 2 == 1) and 1 or -1
     local startX, endX
-    if direction == 1 then
-      startX, endX = 1, DEFAULT_X
-    else
-      startX, endX = DEFAULT_X, 1
-    end
+    if direction == 1 then startX, endX = 1, DEFAULT_X else startX, endX = DEFAULT_X, 1 end
     for x = startX, endX, direction do
       currentRow = y
       currentCol = x
@@ -226,10 +238,9 @@ function mineLayer()
       moveForwardSafe()
       saveState()
       if x == endX and y == DEFAULT_Y then
-        print("📦 Placing chest at end of layer " .. currentLayer .. "...")
+        turtle.say("Placing chest at end of layer " .. currentLayer)
         turtle.select(CHEST_SLOT)
         if turtle.placeDown() then
-          print("📄 Chest placed.")
           for i = 1, 16 do
             if i ~= FUEL_SLOT and i ~= TORCH_SLOT and i ~= CHEST_SLOT then
               turtle.select(i)
@@ -237,19 +248,15 @@ function mineLayer()
             end
           end
         else
-          print("⚠️ Failed to place chest.")
+          turtle.say("Failed to place chest.")
         end
       end
     end
     if y < DEFAULT_Y then
       if y % 2 == 1 then
-        turtle.turnRight()
-        moveForwardSafe()
-        turtle.turnRight()
+        turtle.turnRight() moveForwardSafe() turtle.turnRight()
       else
-        turtle.turnLeft()
-        moveForwardSafe()
-        turtle.turnLeft()
+        turtle.turnLeft() moveForwardSafe() turtle.turnLeft()
       end
     end
   end
@@ -257,33 +264,35 @@ end
 
 function main()
   if fs.exists(SAVE_FILE) then
-    print("A saved session was found. Resume? (y/n)")
+    turtle.say("Saved session found. Resume? (y/n)")
     local answer = io.read():lower()
     if answer == "y" then
       if loadState() then
-        print("✅ Resumed previous session from layer " .. currentLayer .. ", row " .. currentRow .. ", col " .. currentCol)
+        turtle.say("Resumed at layer " .. currentLayer .. ", row " .. currentRow .. ", col " .. currentCol)
       else
-        print("⚠️ Failed to load save. Starting fresh.")
+        turtle.say("Failed to load save.")
       end
     else
       fs.delete(SAVE_FILE)
-      print("Save file deleted. Starting fresh.")
+      turtle.say("Starting fresh.")
     end
   end
-  print("Enter depth to start mining (Y-level):")
+
+  turtle.say("Enter depth to start mining (Y-level):")
   local targetY = tonumber(io.read())
   surfaceZ = pos.z
   while pos.z < targetY do moveDownSafe() end
   checkBeaconEffect()
-  print("Mining from Y = " .. pos.z)
+  turtle.say("Mining from Y = " .. pos.z)
 
   for layer = 1, DEFAULT_LAYERS do
     if haltMining then break end
     currentLayer = layer
-    print("Starting layer " .. layer .. "...")
+    turtle.say("Starting layer " .. layer)
     mineLayer()
     if layer < DEFAULT_LAYERS then moveDownSafe() end
   end
+
   returnToSurface()
 end
 
