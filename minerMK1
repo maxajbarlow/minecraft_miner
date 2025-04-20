@@ -1,13 +1,5 @@
 -- BASIC 2x2 TUNNEL MINER
 
--- === STATE ===
-local fuelThreshold = 2
-
--- === HELPERS ===
-local function notify(msg)
-  print(msg)
-end
-
 function moveForwardSafe()
   if turtle.getFuelLevel() < fuelThreshold then
     notify("Fuel low. Stopping.")
