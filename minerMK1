@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 -- TURTLE MINER SCRIPT
 -- Max's Ultimate Multi-Layer Checkerboard Quarry Bot with Save/Resume, Vein Tracing, and Beacon Detection
 
@@ -7,11 +5,15 @@
 local UPDATE_URL = "https://raw.githubusercontent.com/maxajbarlow/minecraft_miner/refs/heads/main/minerMK1.lua"
 local SCRIPT_NAME = "startup.lua"
 
+local function notify(msg)
+  print(msg)
+end
+
 function selfUpdate()
-  print("Checking for updates...")
+  notify("Checking for updates...")
   local response = http.get(UPDATE_URL)
   if not response then
-    print("⚠️ Update check failed. Running current version.")
+    notify("Update check failed.")
     return
   end
 
@@ -22,22 +24,21 @@ function selfUpdate()
     local current = fs.open(SCRIPT_NAME, "r")
     local localContent = current.readAll()
     current.close()
-
     if localContent == remote then
-      print("✅ No update needed.")
+      notify("No update needed.")
       return
     end
   end
 
-  print("⬇️ New version found. Updating...")
+  notify("New version found. Updating...")
   local file = fs.open(SCRIPT_NAME, "w")
   file.write(remote)
   file.close()
-  print("✅ Script updated. Rebooting...")
+  notify("Script updated. Rebooting...")
   os.reboot()
 end
 
-if http then selfUpdate() else print("HTTP API is disabled. Skipping auto-update.") end
+if http then selfUpdate() else notify("HTTP disabled. Skipping update.") end
 
 -- === CONFIGURATION ===
 local DEFAULT_X = 100
@@ -109,7 +110,7 @@ function checkBeaconEffect()
     for _, e in pairs(effects) do
       if e == "haste" then
         hasteDetected = true
-        print("🟡 Haste effect detected (Beacon)")
+        notify("Haste effect detected")
       end
     end
   end
@@ -124,212 +125,16 @@ end
 
 function traceVein(depth)
   if not ENABLE_VEIN_TRACE or (depth or 0) > 10 then return end
-
   local directions = {
     { inspect = turtle.inspect, dig = turtle.dig },
     { inspect = turtle.inspectUp, dig = turtle.digUp },
     { inspect = turtle.inspectDown, dig = turtle.digDown },
   }
-
   for _, dir in ipairs(directions) do
     local success, data = dir.inspect()
-    if success and isWhitelisted(data.name) then
+    if success and data.name and isWhitelisted(data.name) then
       digWithHaste(dir.dig)
       traceVein((depth or 0) + 1)
     end
   end
 end
-
--- === MINING FLOW ===
-
->>>>>>> parent of ac2e5c6 (Update minerMK1)
-function isWhitelisted(name)
-  return WHITELIST[name] == true
-end
-
-function faceDirection(dir)
-  while pos.face ~= dir do
-    turtle.turnRight()
-    pos.face = (pos.face + 1) % 4
-  end
-end
-
-local haltMining = false
-
-function moveForwardSafe()
-  if turtle.getFuelLevel() < 10 then
-    if not fuelNotified then
-<<<<<<< HEAD
-      notify("Low fuel. Returning to surface.")
-=======
-      print("Low fuel. Returning to surface.")
->>>>>>> parent of ac2e5c6 (Update minerMK1)
-      fuelNotified = true
-      returnToSurface()
-      haltMining = true
-    end
-    return
-  else
-    fuelNotified = false
-  end
-  while not turtle.forward() do turtle.dig() sleep(0.1) end
-  if pos.face == 0 then pos.y = pos.y + 1
-  elseif pos.face == 1 then pos.x = pos.x + 1
-  elseif pos.face == 2 then pos.y = pos.y - 1
-  elseif pos.face == 3 then pos.x = pos.x - 1 end
-  stepCounter = stepCounter + 1
-end
-
-function moveDownSafe()
-  while not turtle.down() do turtle.digDown() sleep(0.1) end
-  pos.z = pos.z + 1
-end
-
-function moveUpSafe()
-  while not turtle.up() do turtle.digUp() sleep(0.1) end
-  pos.z = pos.z - 1
-end
-
-function returnToSurface()
-  faceDirection(2)
-  while pos.y > 0 do moveForwardSafe() end
-  faceDirection(3)
-  while pos.x > 0 do moveForwardSafe() end
-  while pos.z > surfaceZ do moveUpSafe() end
-  faceDirection(2)
-<<<<<<< HEAD
-  notify("Returned to surface.")
-=======
-  print("Returned to surface.")
-  print("📦 Turtle has returned to the starting chest position.")
->>>>>>> parent of ac2e5c6 (Update minerMK1)
-end
-
-function checkAllSides()
-  local directions = {
-    { inspect = turtle.inspect, dig = turtle.dig },
-    { inspect = turtle.inspectUp, dig = turtle.digUp },
-    { inspect = turtle.inspectDown, dig = turtle.digDown }
-  }
-  for _, dir in ipairs(directions) do
-    local success, data = dir.inspect()
-    if success and isWhitelisted(data.name) then
-      digWithHaste(dir.dig)
-      if ENABLE_VEIN_TRACE then traceVein() end
-    end
-  end
-end
-
-function mineLayer()
-  if haltMining then return end
-  for y = 1, DEFAULT_Y do
-    local direction = (y % 2 == 1) and 1 or -1
-    local startX, endX
-    if direction == 1 then
-      startX, endX = 1, DEFAULT_X
-    else
-      startX, endX = DEFAULT_X, 1
-    end
-    for x = startX, endX, direction do
-      currentRow = y
-      currentCol = x
-      checkAllSides()
-      moveForwardSafe()
-      saveState()
-      if x == endX and y == DEFAULT_Y then
-<<<<<<< HEAD
-        notify("Placing chest at end of layer " .. currentLayer)
-=======
-        print("📦 Placing chest at end of layer " .. currentLayer .. "...")
->>>>>>> parent of ac2e5c6 (Update minerMK1)
-        turtle.select(CHEST_SLOT)
-        if turtle.placeDown() then
-          print("📄 Chest placed.")
-          for i = 1, 16 do
-            if i ~= FUEL_SLOT and i ~= TORCH_SLOT and i ~= CHEST_SLOT then
-              turtle.select(i)
-              turtle.dropDown()
-            end
-          end
-        else
-<<<<<<< HEAD
-          notify("Failed to place chest.")
-=======
-          print("⚠️ Failed to place chest.")
->>>>>>> parent of ac2e5c6 (Update minerMK1)
-        end
-      end
-    end
-    if y < DEFAULT_Y then
-      if y % 2 == 1 then
-        turtle.turnRight()
-        moveForwardSafe()
-        turtle.turnRight()
-      else
-        turtle.turnLeft()
-        moveForwardSafe()
-        turtle.turnLeft()
-      end
-    end
-  end
-end
-
-function main()
-  if fs.exists(SAVE_FILE) then
-<<<<<<< HEAD
-    notify("Saved session found. Resume? (y/n)")
-    local answer = io.read():lower()
-    if answer == "y" then
-      if loadState() then
-        notify("Resumed at layer " .. currentLayer .. ", row " .. currentRow .. ", col " .. currentCol)
-      else
-        notify("Failed to load save.")
-      end
-    else
-      fs.delete(SAVE_FILE)
-      notify("Starting fresh.")
-    end
-  end
-
-  notify("Enter depth to start mining (Y-level):")
-=======
-    print("A saved session was found. Resume? (y/n)")
-    local answer = io.read():lower()
-    if answer == "y" then
-      if loadState() then
-        print("✅ Resumed previous session from layer " .. currentLayer .. ", row " .. currentRow .. ", col " .. currentCol)
-      else
-        print("⚠️ Failed to load save. Starting fresh.")
-      end
-    else
-      fs.delete(SAVE_FILE)
-      print("Save file deleted. Starting fresh.")
-    end
-  end
-  print("Enter depth to start mining (Y-level):")
->>>>>>> parent of ac2e5c6 (Update minerMK1)
-  local targetY = tonumber(io.read())
-  surfaceZ = pos.z
-  while pos.z < targetY do moveDownSafe() end
-  checkBeaconEffect()
-<<<<<<< HEAD
-  notify("Mining from Y = " .. pos.z)
-=======
-  print("Mining from Y = " .. pos.z)
->>>>>>> parent of ac2e5c6 (Update minerMK1)
-
-  for layer = 1, DEFAULT_LAYERS do
-    if haltMining then break end
-    currentLayer = layer
-<<<<<<< HEAD
-    notify("Starting layer " .. layer)
-=======
-    print("Starting layer " .. layer .. "...")
->>>>>>> parent of ac2e5c6 (Update minerMK1)
-    mineLayer()
-    if layer < DEFAULT_LAYERS then moveDownSafe() end
-  end
-  returnToSurface()
-end
-
-main()
