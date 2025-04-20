@@ -10,8 +10,7 @@ end
 
 function moveForwardSafe()
   if turtle.getFuelLevel() < fuelThreshold then
-    notify("Fuel low. Returning.")
-    returnToStart()
+    notify("Fuel low. Stopping.")
     return false
   end
   while not turtle.forward() do turtle.dig() sleep(0.1) end
@@ -24,17 +23,6 @@ end
 
 function moveUpSafe()
   while not turtle.up() do turtle.digUp() sleep(0.1) end
-end
-
-function returnToStart()
-  turtle.turnLeft()
-  turtle.turnLeft()
-  for i = 1, 10 do  -- assumes 10 blocks forward
-    if not turtle.forward() then break end
-  end
-  turtle.turnLeft()
-  turtle.turnLeft()
-  notify("Returned to start.")
 end
 
 function dig2x2()
@@ -58,7 +46,6 @@ end
 function main()
   notify("Starting 2x2 tunnel...")
   dig2x2()
-  returnToStart()
 end
 
 main()
