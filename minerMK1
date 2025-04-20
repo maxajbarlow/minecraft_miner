@@ -1,4 +1,4 @@
--- Enhanced Turtle Miner v2.0
+-- Enhanced Turtle Miner v2.1
 -- Modes: quarry, bore, branch
 -- Place fuel chest (for auto-refuel) to the left, drop-off chest behind.
 
@@ -30,39 +30,42 @@ if mode == "branch" then
   io.write("Branch length: ")
   branchLength = tonumber(io.read()) or error("Invalid length")
   io.write("Number of floors: ")
-  floors = tonumber(io.read()) or 1
+  floors = tonumber(io.read()) or error("Invalid number")
 end
 
-io.clear()
+-- Clear screen before starting operations
+term.clear()
+term.setCursorPos(1,1)
 
--- State
+-- State tracking
 local posX, posY, posZ, rotation = 0, 0, 0, 0
 local fullSlots = 0
 
--- Utility functions
+-- Refuel if low
 function refuelIfNeeded()
   if turtle.getFuelLevel() < 100 then
     turtle.turnLeft()
-    repeat turtle.suck() until turtle.getFuelLevel() > 500
+    while turtle.suck() do end
     turtle.turnRight()
   end
 end
 
+-- Manage inventory: drop or offload when full
 function manageInventory()
-  -- drop garbage or offload when full
   fullSlots = 0
   for i=1,16 do
     turtle.select(i)
-    if turtle.getItemCount()>0 then fullSlots = fullSlots + 1 end
+    if turtle.getItemCount() > 0 then fullSlots = fullSlots + 1 end
   end
   if fullSlots == 16 then
-    -- return to chest, drop all
+    -- return to drop chest (behind start)
     turtle.turnLeft(); turtle.turnLeft()
     for i=1,16 do turtle.select(i); turtle.drop() end
     turtle.turnLeft(); turtle.turnLeft()
   end
 end
 
+-- Dig forward safely
 function digForward()
   refuelIfNeeded()
   while turtle.detect() do turtle.dig() end
@@ -70,43 +73,48 @@ function digForward()
   manageInventory()
 end
 
--- Quarry / Bore functions omitted for brevity...
+-- Quarry and bore implementations should go here...
 
--- Branch mining function
+-- Branch mining implementation
 function branchMine()
-  -- Descend to starting level if needed
-  for i=1, defaultY-1 do if turtle.down() then posY=posY-1 end end
+  -- Descend to starting depth (if above default)
+  for i=1, defaultY-1 do
+    if turtle.down() then posY = posY - 1 end
+  end
 
   for floor=1, floors do
-    -- dig trunk corridor
+    -- Dig main corridor
     for i=1, columns do digForward() end
-    -- create side branches along corridor
-    for distance=spacing, columns, spacing do
-      -- move to branch start
-      turtle.back(spacing)
+
+    -- Branch out at intervals
+    for dist=spacing, columns, spacing do
+      -- Move back to branch start
+      for step=1, spacing do turtle.back() end
       turtle.turnRight()
-      -- dig branch
+      -- Mine branch
       for j=1, branchLength do digForward() end
-      -- return to trunk
-      turtle.turnLeft(); turtle.turnLeft()
+      -- Return to corridor
+      turtle.turnLeft() turtle.turnLeft()
       for j=1, branchLength do digForward() end
       turtle.turnRight()
     end
-    -- prepare next floor
+
+    -- Move down/up to next floor
     if floor < floors then
       turtle.turnLeft()
-      if turtle.down() then posY=posY-1 end
+      if turtle.down() then posY = posY - 1 end
       turtle.turnRight()
     end
   end
 end
 
--- Main
+-- Main execution
 if mode == "branch" then
   branchMine()
+elseif mode == "quarry" then
+  quarry()
 else
-  -- call existing quarry()/bore() functions
-  if mode == "quarry" then quarry() else bore() end
+  bore()
 end
 
 print("Mining operation complete!")
