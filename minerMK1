@@ -1,142 +1,3 @@
--- TURTLE MINER SCRIPT
--- Max's Ultimate Multi-Layer Checkerboard Quarry Bot with Save/Resume, Vein Tracing, and Beacon Detection
-
--- === SELF-UPDATER ===
-local UPDATE_URL = "https://raw.githubusercontent.com/maxajbarlow/minecraft_miner/refs/heads/main/minerMK1.lua"
-local SCRIPT_NAME = "startup.lua"
-
-function selfUpdate()
-  turtle.say("Checking for updates...")
-  local response = http.get(UPDATE_URL)
-  if not response then
-    turtle.say("Update check failed.")
-    return
-  end
-
-  local remote = response.readAll()
-  response.close()
-
-  if fs.exists(SCRIPT_NAME) then
-    local current = fs.open(SCRIPT_NAME, "r")
-    local localContent = current.readAll()
-    current.close()
-    if localContent == remote then
-      turtle.say("No update needed.")
-      return
-    end
-  end
-
-  turtle.say("New version found. Updating...")
-  local file = fs.open(SCRIPT_NAME, "w")
-  file.write(remote)
-  file.close()
-  turtle.say("Script updated. Rebooting...")
-  os.reboot()
-end
-
-if http then selfUpdate() else turtle.say("HTTP disabled. Skipping update.") end
-
--- === CONFIGURATION ===
-local DEFAULT_X = 100
-local DEFAULT_Y = 100
-local DEFAULT_LAYERS = 10
-
-local FUEL_SLOT = 1
-local CHEST_SLOT = 15
-local TORCH_SLOT = 16
-local TORCH_SPACING = 9
-local SAVE_FILE = "miner_state.txt"
-
-local ENABLE_VEIN_TRACE = true
-local VEIN_TRACE_RADIUS = 1
-
-local WHITELIST = {
-  ["minecraft:coal_ore"] = true,
-  ["minecraft:iron_ore"] = true,
-  ["minecraft:gold_ore"] = true,
-  ["minecraft:diamond_ore"] = true,
-  ["minecraft:redstone_ore"] = true,
-  ["minecraft:lapis_ore"] = false,
-  ["minecraft:emerald_ore"] = true,
-  ["minecraft:copper_ore"] = false,
-  ["mekanism:osmium_ore"] = true,
-  ["mekanism:lead_ore"] = true,
-  ["mekanism:tin_ore"] = true,
-  ["mekanism:uranium_ore"] = false,
-  ["thermal:tin_ore"] = false,
-  ["thermal:silver_ore"] = false,
-  ["thermal:lead_ore"] = false,
-  ["thermal:nickel_ore"] = false,
-  ["create:zinc_ore"] = false,
-  ["immersiveengineering:aluminum_ore"] = false
-}
-
--- === STATE ===
-local pos = {x = 0, y = 0, z = 0, face = 0}
-local currentLayer, currentRow, currentCol = 1, 1, 1
-local stepCounter = 0
-local surfaceZ = pos.z
-local hasteDetected = false
-local fuelNotified = false
-
--- === HELPERS ===
-function saveState()
-  local f = fs.open(SAVE_FILE, "w")
-  f.write(textutils.serialize({pos = pos, layer = currentLayer, row = currentRow, col = currentCol}))
-  f.close()
-end
-
-function loadState()
-  if fs.exists(SAVE_FILE) then
-    local f = fs.open(SAVE_FILE, "r")
-    local data = textutils.unserialize(f.readAll())
-    f.close()
-    pos = data.pos
-    currentLayer = data.layer
-    currentRow = data.row
-    currentCol = data.col
-    return true
-  end
-  return false
-end
-
-function checkBeaconEffect()
-  local effects = turtle.getFuelLimit and {} or nil
-  if effects then
-    for _, e in pairs(effects) do
-      if e == "haste" then
-        hasteDetected = true
-        turtle.say("Haste effect detected")
-      end
-    end
-  end
-end
-
-function digWithHaste(digFn)
-  repeat
-    digFn()
-    sleep(hasteDetected and 0.05 or 0.2)
-  until not digFn()
-end
-
-function traceVein(depth)
-  if not ENABLE_VEIN_TRACE or (depth or 0) > 10 then return end
-  local directions = {
-    { inspect = turtle.inspect, dig = turtle.dig },
-    { inspect = turtle.inspectUp, dig = turtle.digUp },
-    { inspect = turtle.inspectDown, dig = turtle.digDown },
-  }
-  for _, dir in ipairs(directions) do
-    local success, data = dir.inspect()
-    if success and data.name and isWhitelisted(data.name) then
-      digWithHaste(dir.dig)
-      traceVein((depth or 0) + 1)
-    end
-  end
-end
-
--- === MINING FLOW ===
-
 function isWhitelisted(name)
   return WHITELIST[name] == true
 end
@@ -173,7 +34,7 @@ end
 function moveForwardSafe()
   if getTotalFuelPotential() < 50 then
     if not fuelNotified then
-      turtle.say("Low fuel. Returning to surface.")
+      notify("Low fuel. Returning to surface.")
       fuelNotified = true
       returnToSurface()
       haltMining = true
@@ -207,7 +68,7 @@ function returnToSurface()
   while pos.x > 0 do moveForwardSafe() end
   while pos.z > surfaceZ do moveUpSafe() end
   faceDirection(2)
-  turtle.say("Returned to surface.")
+  notify("Returned to surface.")
 end
 
 function checkAllSides()
@@ -238,7 +99,7 @@ function mineLayer()
       moveForwardSafe()
       saveState()
       if x == endX and y == DEFAULT_Y then
-        turtle.say("Placing chest at end of layer " .. currentLayer)
+        notify("Placing chest at end of layer " .. currentLayer)
         turtle.select(CHEST_SLOT)
         if turtle.placeDown() then
           for i = 1, 16 do
@@ -248,7 +109,7 @@ function mineLayer()
             end
           end
         else
-          turtle.say("Failed to place chest.")
+          notify("Failed to place chest.")
         end
       end
     end
@@ -264,31 +125,31 @@ end
 
 function main()
   if fs.exists(SAVE_FILE) then
-    turtle.say("Saved session found. Resume? (y/n)")
+    notify("Saved session found. Resume? (y/n)")
     local answer = io.read():lower()
     if answer == "y" then
       if loadState() then
-        turtle.say("Resumed at layer " .. currentLayer .. ", row " .. currentRow .. ", col " .. currentCol)
+        notify("Resumed at layer " .. currentLayer .. ", row " .. currentRow .. ", col " .. currentCol)
       else
-        turtle.say("Failed to load save.")
+        notify("Failed to load save.")
       end
     else
       fs.delete(SAVE_FILE)
-      turtle.say("Starting fresh.")
+      notify("Starting fresh.")
     end
   end
 
-  turtle.say("Enter depth to start mining (Y-level):")
+  notify("Enter depth to start mining (Y-level):")
   local targetY = tonumber(io.read())
   surfaceZ = pos.z
   while pos.z < targetY do moveDownSafe() end
   checkBeaconEffect()
-  turtle.say("Mining from Y = " .. pos.z)
+  notify("Mining from Y = " .. pos.z)
 
   for layer = 1, DEFAULT_LAYERS do
     if haltMining then break end
     currentLayer = layer
-    turtle.say("Starting layer " .. layer)
+    notify("Starting layer " .. layer)
     mineLayer()
     if layer < DEFAULT_LAYERS then moveDownSafe() end
   end
